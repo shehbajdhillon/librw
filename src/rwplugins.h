@@ -164,6 +164,7 @@ struct MatFX
 	static bool32 envMapApplyLight;	// modulate env map by lighting
 	static bool32 envMapUseMatColor;	// modulate env map by material color
 	static RGBA envMapColor;	// if !envMapUseMatColor, use this
+	static bool32 modulateEnvMap;	// for re3/reVC compatibility
 };
 
 struct MatFXGlobals
