@@ -1589,12 +1589,18 @@ startSDL2(void)
 	}
 	ctx = SDL_GL_CreateContext(win);
 
+#ifdef __EMSCRIPTEN__
+	// On Emscripten, GL functions are available directly via WebGL
+	// No need to load via GLAD
+	(void)gl3Caps; // suppress unused warning
+#else
 	if (!((gl3Caps.gles ? gladLoadGLES2Loader : gladLoadGLLoader) ((GLADloadproc) SDL_GL_GetProcAddress, gl3Caps.glversion)) ) {
 		RWERROR((ERR_GENERAL, "gladLoadGLLoader failed"));
 		SDL_GL_DeleteContext(ctx);
 		SDL_DestroyWindow(win);
 		return 0;
 	}
+#endif
 
 	printf("OpenGL version: %s\n", glGetString(GL_VERSION));
 
@@ -1756,12 +1762,16 @@ startSDL3(void)
 	}
 	ctx = SDL_GL_CreateContext(win);
 
+#ifdef __EMSCRIPTEN__
+	// On Emscripten, GL functions are available directly via WebGL
+#else
 	if (!((gl3Caps.gles ? gladLoadGLES2Loader : gladLoadGLLoader) ((GLADloadproc) SDL_GL_GetProcAddress, gl3Caps.glversion)) ) {
 		RWERROR((ERR_GENERAL, "gladLoadGLLoader failed"));
 		SDL_GL_DestroyContext(ctx);
 		SDL_DestroyWindow(win);
 		return 0;
 	}
+#endif
 
 	printf("OpenGL version: %s\n", glGetString(GL_VERSION));
 
