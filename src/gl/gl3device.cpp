@@ -100,6 +100,16 @@ const char *shaderDecl310es =
 "precision highp float;\n"
 "precision highp int;\n";
 
+// WebGL2 only supports GLSL ES 3.00, not 3.10
+const char *shaderDecl300es =
+"#version 300 es\n"
+"#define VSIN(index) layout(location = index) in\n"
+"#define VSOUT out\n"
+"#define FSIN in\n"
+"#define FRAGCOLOR(c) (fragColor = c)\n"
+"precision highp float;\n"
+"precision highp int;\n";
+
 const char *shaderDecl;
 
 // this needs a define in the shaders as well!
@@ -511,7 +521,11 @@ static GLint filterConvMap_MIP[] = {
 
 static GLint addressConvMap[] = {
 	0, GL_REPEAT, GL_MIRRORED_REPEAT,
+#ifdef __EMSCRIPTEN__
+	GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE  // WebGL2 doesn't support GL_CLAMP_TO_BORDER
+#else
 	GL_CLAMP_TO_EDGE, GL_CLAMP_TO_BORDER
+#endif
 };
 
 static void
@@ -1544,10 +1558,16 @@ static struct {
 	int gl;
 	int major, minor;
 } profiles[] = {
+#ifdef __EMSCRIPTEN__
+	// Emscripten/WebGL2 requires ES profile
+	{ SDL_GL_CONTEXT_PROFILE_ES, 3, 0 },
+	{ SDL_GL_CONTEXT_PROFILE_ES, 2, 0 },
+#else
 	{ SDL_GL_CONTEXT_PROFILE_CORE, 3, 3 },
 	{ SDL_GL_CONTEXT_PROFILE_CORE, 2, 1 },
 	{ SDL_GL_CONTEXT_PROFILE_ES, 3, 1 },
 	{ SDL_GL_CONTEXT_PROFILE_ES, 2, 0 },
+#endif
 	{ 0, 0, 0 },
 };
 
@@ -1979,16 +1999,36 @@ initOpenGL(void)
 //		printf("%d %s\n", i, ext);
 	}
 */
+#ifdef __EMSCRIPTEN__
+	// WebGL2 typically doesn't support S3TC/DXT unless extension is available
+	// Check via extension string
+	const char* extensions = (const char*)glGetString(GL_EXTENSIONS);
+	gl3Caps.dxtSupported = extensions && strstr(extensions, "WEBGL_compressed_texture_s3tc") != NULL;
+	gl3Caps.astcSupported = extensions && strstr(extensions, "WEBGL_compressed_texture_astc") != NULL;
+	gl3Caps.maxAnisotropy = 1.0f;  // Query may not be available, use safe default
+	if(extensions && strstr(extensions, "EXT_texture_filter_anisotropic") != NULL) {
+		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &gl3Caps.maxAnisotropy);
+	}
+#else
 	gl3Caps.dxtSupported = !!GLAD_GL_EXT_texture_compression_s3tc;
 	gl3Caps.astcSupported = !!GLAD_GL_KHR_texture_compression_astc_ldr;
 
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &gl3Caps.maxAnisotropy);
+#endif
 
 	if(gl3Caps.gles){
+#ifdef __EMSCRIPTEN__
+		// WebGL2 only supports GLSL ES 3.00, not 3.10
+		if(gl3Caps.glversion >= 30)
+			shaderDecl = shaderDecl300es;
+		else
+			shaderDecl = shaderDecl100es;
+#else
 		if(gl3Caps.glversion >= 30)
 			shaderDecl = shaderDecl310es;
 		else
 			shaderDecl = shaderDecl100es;
+#endif
 	}else{
 		if(gl3Caps.glversion >= 30)
 			shaderDecl = shaderDecl330;

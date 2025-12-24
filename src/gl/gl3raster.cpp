@@ -470,10 +470,15 @@ rasterLock(Raster *raster, int32 level, int32 lockMode)
 					assert(allocSz >= natras->backingStore->levels[level].size);
 					memcpy(px, natras->backingStore->levels[level].data, allocSz);
 				}else{
+#ifdef __EMSCRIPTEN__
+					// WebGL2 doesn't support glGetCompressedTexImage, fill with zeros
+					memset(px, 0, allocSz);
+#else
 					// GLES is losing here
 					uint32 prev = bindTexture(natras->texid);
 					glGetCompressedTexImage(GL_TEXTURE_2D, level, px);
 					bindTexture(prev);
+#endif
 				}
 			}else if(gl3Caps.gles){
 				GLuint fbo;
@@ -487,10 +492,21 @@ assert(natras->format == GL_RGBA);
 				bindFramebuffer(0);
 				glDeleteFramebuffers(1, &fbo);
 			}else{
+#ifdef __EMSCRIPTEN__
+				// WebGL2 doesn't support glGetTexImage, use FBO fallback
+				GLuint fbo;
+				glGenFramebuffers(1, &fbo);
+				bindFramebuffer(fbo);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, natras->texid, 0);
+				glReadPixels(0, 0, raster->width, raster->height, natras->format, natras->type, px);
+				bindFramebuffer(0);
+				glDeleteFramebuffers(1, &fbo);
+#else
 				uint32 prev = bindTexture(natras->texid);
 				glPixelStorei(GL_PACK_ALIGNMENT, 1);
 				glGetTexImage(GL_TEXTURE_2D, level, natras->format, natras->type, px);
 				bindTexture(prev);
+#endif
 			}
 		}
 
